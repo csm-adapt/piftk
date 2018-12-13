@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import scipy.stats as stats
 from scipy.spatial.distance import pdist, squareform
 
 
@@ -76,3 +78,38 @@ def max_pore_diameter(volume):
     """
 
     return np.max(sphere_equivalent_diameter(volume))
+
+
+def qq_lognormal(data=None, loc=0):
+    ''' Probability plot against lognormal
+
+        Args:
+        data (numpy array) | your measured data
+        loc (int or float) | Shifts distribution
+    '''
+
+    # sigma
+    s = data.var()
+    # exp(mu)
+    scale = math.exp(data.mean())
+    # y = (x - loc) / scale
+    y = np.array(list(map(lambda x: (x - loc) / scale, data)))
+
+    values, params = stats.probplot(data, dist=stats.lognorm(1), rvalue=True)
+    # pylab.show()
+    return params
+
+
+def qq_normal(data=None, loc=0):
+    ''' Probability plot against normal. Probability
+    plots describe the observed values in the context
+    of a known distribution.
+
+        Args:
+            data (numpy array) | your measured data
+            loc (int or float) | Shifts distribution
+    '''
+
+    values, params = stats.probplot(data, dist='norm', rvalue=True)
+    # pylab.show()
+    return params

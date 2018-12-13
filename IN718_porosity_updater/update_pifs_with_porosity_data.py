@@ -36,8 +36,8 @@ def parse_csv(csv_file_dir, pif_dir):
 
             # calc pore stats
             pore_stats = ['neighbor pore distance', 'median pore diameter', 'median pore spacing',
-                          'mean pore spacing', 'max pore diameter',  'pore volume',
-                          'stdev of pore diameter distribution', 'total pores']
+                          'mean pore spacing', 'max pore diameter',  'pore volume', 'pore diameters',
+                          'stdev of pore diameters', 'total pores']
 
             for prop_name in pore_stats:
                 prop = Property()
@@ -68,7 +68,11 @@ def parse_csv(csv_file_dir, pif_dir):
                     prop.scalars = [Scalar(value=x) for x in df['Volume (µm³)']]
                     prop.units = '${\mu m}^3$'
 
-                if prop_name == 'stdev of pore diameter distribution':
+                if prop_name == 'pore diameters':
+                    prop.scalars = [Scalar(value=x) for x in sphere_equivalent_diameter(df['Volume (µm³)'])]
+                    prop.units = '$\mu m$'
+
+                if prop_name == 'stdev of pore diameters':
                     prop.scalars = Scalar(value=round(np.std(sphere_equivalent_diameter(df['Volume (µm³)'])), 3))
                     prop.units = '$\mu m$'
 
@@ -158,7 +162,32 @@ def add_porosity_stats_to_pifs(systems):
 
     for system in systems:
         if system.properties:
+            prop_names = [prop.name for prop in system.properties]
             for prop in system.properties:
+                if prop.name == 'pore volume':
+
+                    pore_volumes = [float(sca.value) for sca in prop.scalars]
+                    r_squared_norm = round(qq_normal(sphere_equivalent_diameter(pore_volumes))[2]**2, 4)
+                    r_squared_lognorm = round(qq_lognormal(sphere_equivalent_diameter(pore_volumes))[2]**2, 4)
+                    system.properties.append(Property(name='r_squared_norm', scalars=r_squared_norm))
+                    system.properties.append(Property(name='r_squared_lognorm', scalars=r_squared_lognorm))
+                    if r_squared_norm > r_squared_lognorm:
+                        system.properties.append(Property(name='dist_best_fit', scalars='NORM'))
+                    else:
+                        system.properties.append(Property(name='dist_best_fit', scalars='LOGNORM'))
+
+                    if 'pore diameters' not in prop_names:
+                        pore_diameters = [Scalar(value=x) for x in sphere_equivalent_diameter(pore_volumes)]
+                        system.properties.append(Property(name='pore diameters', scalars=pore_diameters, units='$\mu m$'))
+
+                    if 'stdev of pore diameters' not in prop_names:
+                        stdev = Scalar(value=round(np.std(sphere_equivalent_diameter(pore_volumes)), 3))
+                        system.properties.append(Property(name='stdev of pore diameters', scalars=stdev, units='$\mu m$'))
+
+                    if 'total pores' not in prop_names:
+                        total_pores = Scalar(value=len(pore_volumes))
+                        system.properties.append(Property(name='total pores', scalars=total_pores))
+
                 if prop.name == 'max pore diameter':
                     mpd = float(prop.scalars.value)
                     if mpd > 200:
@@ -168,7 +197,7 @@ def add_porosity_stats_to_pifs(systems):
 
                     if mpd > 200:
                         system.properties.append(Property(name='Pore size warning (ternary)', scalars='RED'))
-                    elif 75 < mpd < 100:
+                    elif 75 < mpd < 200:
                         system.properties.append(Property(name='Pore size warning (ternary)', scalars='YELLOW'))
                     else:
                         system.properties.append(Property(name='Pore size warning (ternary)', scalars='GREEN'))
@@ -182,11 +211,14 @@ def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
     new_systems = []
     selected_prop_names = ['max pore diameter', 'mean pore diameter', 'fraction porosity', 'median pore spacing',
                            'median pore diameter', 'log max pore diameter', 'Pore size warning',
-                           'Pore size warning (ternary)']
+                           'Pore size warning (ternary)', 'total pores', 'stdev of pore diameters', 'dist_best_fit',
+                           'r_squared_norm', 'r_squared_lognorm']
 
     for f in os.listdir(develop_branch_dir):
 
         if ".json" in f:
+
+            new_systems = []
 
             infile_path = develop_branch_dir + f
             old_systems = pif.load(open(infile_path, 'r'))
@@ -241,6 +273,41 @@ def remove_outliers(base_input_dir):
             pif.dump(systems, open(outfile_path, 'w'))
 
 
+def pif_check(dir1, dir2):
+
+    ids1 = []
+    ids2 = []
+
+    for f in os.listdir(dir1):
+        if ".json" in f:
+            infile_path = dir1+f
+            systems = pif.load(open(infile_path, 'r'))
+            print(f, len(systems))
+            for system in systems:
+                prop_names = [prop.name for prop in system.properties]
+                if 'max pore diameter' in prop_names:
+                    ids1.append(system.ids[0].value)
+
+    for f in os.listdir(dir2):
+        if ".json" in f:
+            infile_path = dir2+f
+            systems = pif.load(open(infile_path, 'r'))
+            for system in systems:
+                prop_names = [prop.name for prop in system.properties]
+                if 'max pore diameter' in prop_names:
+                    ids2.append(system.ids[0].value)
+
+
+    print(len(ids1), len(ids2))
+    diff = set(ids1) - set(ids2)
+    print(diff, len(diff))
+    for d in diff:
+        print(d)
+
+
+
+
+
 if __name__ == "__main__":
 
     base_download_path = "/Users/cborg/Box Sync/Mines Open Lead [MOL]/projects/NAVSEA/IN718/"
@@ -256,15 +323,13 @@ if __name__ == "__main__":
     # get_files_from_dataset(dataset_id="73", download_path=base_download_path+"master/LPBF_Inconel_718/")
 
     # modify master branch, pushes modified dataset to a develop branch
-    # modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
+    modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
 
-    # refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined/")
-
-    # Add data to corresponding pif file
-    # add_porosity_data_to_pif(csv_dir=base_download_path+"74/", pif_dir=base_download_path+"73/")
+    refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined/")
 
 
     # upload to new dataset
     # upload_pifs(base_download_path+"develop/LPBF_Inconel_718/", 78)
 
     # remove_outliers(base_input_dir=base_download_path+"73/")
+    # pif_check(base_download_path+"feature/IN718_refined/", base_download_path+"feature/ml_ready/")
