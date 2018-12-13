@@ -14,76 +14,97 @@ def parse_csv(csv_file_dir, pif_dir):
 
     """
     Takes in csv file from dataset 73, returns pif system
+    _full.csv = total volume of part
     :return:
     """
-    for f in os.listdir(csv_file_dir):
-        if ".csv" in f and "_full" not in f:
-            df = pd.read_csv(csv_file_dir+f, encoding="utf-16")
+    csv_files = [f for f in os.listdir(csv_file_dir) if ".csv" in f and "_full" not in f]
+    full_csv_files = [f for f in os.listdir(csv_file_dir) if "_full.csv" in f]
 
-            cm_x = [Scalar(value=x) for x in df['Center Of Mass X (µm)']]
-            cm_y = [Scalar(value=x) for x in df['Center Of Mass Y (µm)']]
-            cm_z = [Scalar(value=x) for x in df['Center Of Mass Z (µm)']]
+    for f in csv_files:
+        df = pd.read_csv(csv_file_dir+f, encoding="utf-16")
 
-            system = ChemicalSystem()
-            sample_id = f.strip(".csv")
-            system.ids = [Id(name='Sample ID', value=sample_id)]
+        system = ChemicalSystem()
+        sample_id = f.strip(".csv")
+        system.ids = [Id(name='Sample ID', value=sample_id)]
 
-            method = Method(name='porosity', software=Software(name='tracr', version='beta'))
-            prop_x = Property(name='center of mass X', scalars=cm_x, units='$\mu m$', method=method)
-            prop_y = Property(name='center of mass Y', scalars=cm_y, units='$\mu m$', method=method)
-            prop_z = Property(name='center of mass Z', scalars=cm_z, units='$\mu m$', method=method)
-            system.properties = [prop_x, prop_y, prop_z]
+        cm_x = [Scalar(value=x) for x in df['Center Of Mass X (µm)']]
+        cm_y = [Scalar(value=x) for x in df['Center Of Mass Y (µm)']]
+        cm_z = [Scalar(value=x) for x in df['Center Of Mass Z (µm)']]
 
-            # calc pore stats
-            pore_stats = ['neighbor pore distance', 'median pore diameter', 'median pore spacing',
-                          'mean pore spacing', 'max pore diameter',  'pore volume', 'pore diameters',
-                          'stdev of pore diameters', 'total pores']
+        method = Method(name='porosity', software=Software(name='tracr', version='beta'))
+        prop_x = Property(name='center of mass X', scalars=cm_x, units='$\mu m$', method=method)
+        prop_y = Property(name='center of mass Y', scalars=cm_y, units='$\mu m$', method=method)
+        prop_z = Property(name='center of mass Z', scalars=cm_z, units='$\mu m$', method=method)
+        system.properties = [prop_x, prop_y, prop_z]
 
-            for prop_name in pore_stats:
-                prop = Property()
-                prop.name = prop_name
-                if prop_name == 'median pore diameter':
-                    prop.scalars = Scalar(value=median_pore_diameter(df['Volume (µm³)']))
-                    prop.units = "$\mu m$"
-                if prop_name == 'neighbor pore distance':
-                    prop.scalars = [Scalar(value=x) for x in nearest_neighbor_distance(df['Center Of Mass X (µm)'],
-                                                                                       df['Center Of Mass Y (µm)'],
-                                                                                       df['Center Of Mass Z (µm)'])]
-                    prop.units = '$\mu m$'
-                if prop_name == 'median pore spacing':
-                    prop.scalars = Scalar(value=median_pore_spacing(df['Center Of Mass X (µm)'],
-                                                                    df['Center Of Mass Y (µm)'],
-                                                                    df['Center Of Mass Z (µm)']))
-                    prop.units = '$\mu m$'
-                if prop_name == 'mean pore spacing':
-                    prop.scalars = Scalar(value=mean_pore_spacing(df['Center Of Mass X (µm)'],
-                                                                  df['Center Of Mass Y (µm)'],
-                                                                  df['Center Of Mass Z (µm)']))
-                    prop.units = '$\mu m$'
-                if prop_name == 'max pore diameter':
-                    prop.scalars = Scalar(value=max_pore_diameter(df['Volume (µm³)']))
-                    prop.units = '$\mu m$'
+        # calc pore stats
+        pore_stats = ['neighbor pore distance', 'median pore diameter', 'median pore spacing',
+                      'mean pore spacing', 'max pore diameter',  'pore volume', 'pore diameters',
+                      'stdev of pore diameters', 'total pores']
 
-                if prop_name == 'pore volume':
-                    prop.scalars = [Scalar(value=x) for x in df['Volume (µm³)']]
-                    prop.units = '${\mu m}^3$'
+        for prop_name in pore_stats:
+            prop = Property()
+            prop.name = prop_name
+            if prop_name == 'median pore diameter':
+                prop.scalars = Scalar(value=median_pore_diameter(df['Volume (µm³)']))
+                prop.units = "$\mu m$"
+            if prop_name == 'neighbor pore distance':
+                prop.scalars = [Scalar(value=x) for x in nearest_neighbor_distance(df['Center Of Mass X (µm)'],
+                                                                                   df['Center Of Mass Y (µm)'],
+                                                                                   df['Center Of Mass Z (µm)'])]
+                prop.units = '$\mu m$'
+            if prop_name == 'median pore spacing':
+                prop.scalars = Scalar(value=median_pore_spacing(df['Center Of Mass X (µm)'],
+                                                                df['Center Of Mass Y (µm)'],
+                                                                df['Center Of Mass Z (µm)']))
+                prop.units = '$\mu m$'
+            if prop_name == 'mean pore spacing':
+                prop.scalars = Scalar(value=mean_pore_spacing(df['Center Of Mass X (µm)'],
+                                                              df['Center Of Mass Y (µm)'],
+                                                              df['Center Of Mass Z (µm)']))
+                prop.units = '$\mu m$'
+            if prop_name == 'max pore diameter':
+                prop.scalars = Scalar(value=max_pore_diameter(df['Volume (µm³)']))
+                prop.units = '$\mu m$'
 
-                if prop_name == 'pore diameters':
-                    prop.scalars = [Scalar(value=x) for x in sphere_equivalent_diameter(df['Volume (µm³)'])]
-                    prop.units = '$\mu m$'
+            if prop_name == 'pore volume':
+                prop.scalars = [Scalar(value=x) for x in df['Volume (µm³)']]
+                prop.units = '${\mu m}^3$'
 
-                if prop_name == 'stdev of pore diameters':
-                    prop.scalars = Scalar(value=round(np.std(sphere_equivalent_diameter(df['Volume (µm³)'])), 3))
-                    prop.units = '$\mu m$'
+            if prop_name == 'pore diameters':
+                prop.scalars = [Scalar(value=x) for x in sphere_equivalent_diameter(df['Volume (µm³)'])]
+                prop.units = '$\mu m$'
 
-                if prop_name == 'total pores':
-                    prop.scalars = Scalar(value=len(df['Volume (µm³)']))
+            if prop_name == 'stdev of pore diameters':
+                prop.scalars = Scalar(value=round(np.std(sphere_equivalent_diameter(df['Volume (µm³)'])), 3))
+                prop.units = '$\mu m$'
 
-                system.properties.append(prop)
+            if prop_name == 'total pores':
+                prop.scalars = Scalar(value=len(df['Volume (µm³)']))
 
-            print(pif.dumps(system.ids))
-            outfile_path = pif_dir+f.replace('.csv', '.json')
-            pif.dump(system, open(outfile_path, 'w'))
+            system.properties.append(prop)
+
+        print(pif.dumps(system.ids))
+        outfile_path = pif_dir+f.replace('.csv', '.json')
+        pif.dump(system, open(outfile_path, 'w'))
+
+    for f in full_csv_files:
+
+        df = pd.read_csv(csv_file_dir+f, encoding="utf-16")
+
+        outfile_path = f.replace('_full.csv', '.json')
+
+        if outfile_path in os.listdir(pif_dir):
+            system = pif.load(open(pif_dir+outfile_path, 'r'))
+            # system.properties.append(Property(name='Full part volume', scalars=df['Volume (µm³)'], units='${\mu m}^3$'))
+            for prop in system.properties:
+                if prop.name == 'pore volume':
+                    total_porosity_vol = sum([sca.value for sca in prop.scalars])
+                    fractional_porosity = round(float(total_porosity_vol / df['Volume (µm³)']), 6)
+                    system.properties.append(Property(name='fraction porosity', scalars=fractional_porosity))
+
+            pif.dump(system, open(pif_dir+outfile_path, 'w'))
+            print("Fraction porosity calc: ", outfile_path)
 
 
 def get_files_from_dataset(dataset_id, download_path):
@@ -208,7 +229,6 @@ def add_porosity_stats_to_pifs(systems):
 
 def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
 
-    new_systems = []
     selected_prop_names = ['max pore diameter', 'mean pore diameter', 'fraction porosity', 'median pore spacing',
                            'median pore diameter', 'log max pore diameter', 'Pore size warning',
                            'Pore size warning (ternary)', 'total pores', 'stdev of pore diameters', 'dist_best_fit',
@@ -273,39 +293,53 @@ def remove_outliers(base_input_dir):
             pif.dump(systems, open(outfile_path, 'w'))
 
 
-def pif_check(dir1, dir2):
+# refines unlabeled records in design space to just records from P005_B002
+def refine_design_space(input_dir, output_dir):
 
-    ids1 = []
-    ids2 = []
+    for f in os.listdir(input_dir):
 
-    for f in os.listdir(dir1):
         if ".json" in f:
-            infile_path = dir1+f
+            infile_path = input_dir + f
             systems = pif.load(open(infile_path, 'r'))
             print(f, len(systems))
-            for system in systems:
-                prop_names = [prop.name for prop in system.properties]
-                if 'max pore diameter' in prop_names:
-                    ids1.append(system.ids[0].value)
 
-    for f in os.listdir(dir2):
+            refined_systems = []
+
+            for system in systems:
+                if not system.properties and "P005_B002" not in f:
+                    pass
+                else:
+                    refined_systems.append(system)
+
+            print(f, len(refined_systems))
+            outfile_path = output_dir + f
+            pif.dump(refined_systems, open(outfile_path, 'w'))
+
+
+def refine_by_id(input_dir, output_dir):
+
+    ids = ["P005_B002_V09", "P005_B002_U09", "P005_B002_W09", "P005_B002_O04", "P005_B002_P04", "P005_B002_V07",
+           "P005_B002_Y09", "P005_B002_V04", "P005_B002_T09", "P005_B002_V10", "P005_B002_V06", "P005_B002_V08",
+           "P005_B002_V02", "P005_B002_V01", "P005_B002_L06", "P005_B002_V05", "P005_B002_O03", "P005_B002_L07",
+           "P005_B002_X10", "P005_B002_C14", "P005_B002_V11", "P005_B002_B14", "P005_B002_A15", "P005_B002_O02"]
+
+    for f in os.listdir(input_dir):
+
         if ".json" in f:
-            infile_path = dir2+f
+            infile_path = input_dir + f
             systems = pif.load(open(infile_path, 'r'))
+            print(f, len(systems))
+
+            refined_systems = []
+
             for system in systems:
-                prop_names = [prop.name for prop in system.properties]
-                if 'max pore diameter' in prop_names:
-                    ids2.append(system.ids[0].value)
+                if system.ids[0].value in ids:
+                    system.properties = []
+                refined_systems.append(system)
 
-
-    print(len(ids1), len(ids2))
-    diff = set(ids1) - set(ids2)
-    print(diff, len(diff))
-    for d in diff:
-        print(d)
-
-
-
+            print(f, len(refined_systems))
+            outfile_path = output_dir + f
+            pif.dump(refined_systems, open(outfile_path, 'w'))
 
 
 if __name__ == "__main__":
@@ -333,3 +367,6 @@ if __name__ == "__main__":
 
     # remove_outliers(base_input_dir=base_download_path+"73/")
     # pif_check(base_download_path+"feature/IN718_refined/", base_download_path+"feature/ml_ready/")
+
+    # refine_design_space(input_dir=base_download_path+"feature/IN718_refined/", output_dir=base_download_path+"feature/IN718_refined_design/")
+    # refine_by_id(input_dir=base_download_path+"feature/IN718_refined_design/", output_dir=base_download_path+"feature/IN718_refined_design_week1/")
