@@ -159,10 +159,23 @@ def modify_master_dataset(master_branch_dir, develop_branch_dir):
             systems = add_heat_treatment_to_pifs(systems, f)
             systems = add_porosity_data_to_pifs(systems, base_download_path+"data/porosity_jsons/")
             systems = add_porosity_stats_to_pifs(systems)
+            systems = add_pore_diameter_bucket_prop(systems)
             outfile_path = develop_branch_dir+f
             pif.dump(systems, open(outfile_path, "w"))
             print("DUMPED: ", outfile_path)
 
+def add_pore_diameter_bucket_prop(systems):
+
+    for system in systems:
+        if system.properties:
+            for prop in system.properties:
+                if prop.name == 'pore diameters':
+                    system.properties.append(Property(name='pore diameter < 50 um', scalars=len([i for i in prop.scalars if float(i.value) < 50])))
+                    system.properties.append(Property(name='pore diameter 50 < x < 100 um', scalars=len([i for i in prop.scalars if 50 < float(i.value) < 100])))
+                    system.properties.append(Property(name='pore diameter 100 < x < 150 um', scalars=len([i for i in prop.scalars if 100 < float(i.value) < 150])))
+                    system.properties.append(Property(name='pore diameter 150 < x < 200 um', scalars=len([i for i in prop.scalars if 150 < float(i.value) < 200])))
+                    system.properties.append(Property(name='pore diameter x > 200 um', scalars=len([i for i in prop.scalars if float(i.value) > 200])))
+    return systems
 
 def add_porosity_data_to_pifs(systems, data_porosity_jsons):
 
@@ -232,7 +245,8 @@ def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
     selected_prop_names = ['max pore diameter', 'mean pore diameter', 'fraction porosity', 'median pore spacing',
                            'median pore diameter', 'log max pore diameter', 'Pore size warning',
                            'Pore size warning (ternary)', 'total pores', 'stdev of pore diameters', 'dist_best_fit',
-                           'r_squared_norm', 'r_squared_lognorm']
+                           'r_squared_norm', 'r_squared_lognorm', 'pore diameter < 50 um', 'pore diameter 50 < x < 100 um',
+                           'pore diameter 100 < x < 150 um', 'pore diameter 150 < x < 200 um', 'pore diameter x > 200 um']
 
     for f in os.listdir(develop_branch_dir):
 
@@ -360,7 +374,6 @@ if __name__ == "__main__":
     modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
 
     refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined/")
-
 
     # upload to new dataset
     # upload_pifs(base_download_path+"develop/LPBF_Inconel_718/", 78)
