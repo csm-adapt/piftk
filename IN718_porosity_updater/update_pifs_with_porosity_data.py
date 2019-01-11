@@ -153,16 +153,25 @@ def modify_master_dataset(master_branch_dir, develop_branch_dir):
     for f in os.listdir(master_branch_dir):
 
         if ".json" in f:
-
             systems = pif.load(open(master_branch_dir + f))
             systems = add_identifiers_to_pifs(systems, f)
             systems = add_heat_treatment_to_pifs(systems, f)
             systems = add_porosity_data_to_pifs(systems, base_download_path+"data/porosity_jsons/")
             systems = add_porosity_stats_to_pifs(systems)
             systems = add_pore_diameter_bucket_prop(systems)
+            systems = remove_unverified_pore_data(systems)
             outfile_path = develop_branch_dir+f
             pif.dump(systems, open(outfile_path, "w"))
             print("DUMPED: ", outfile_path)
+
+def remove_unverified_pore_data(systems):
+
+    unverified_ids = ['P001_B001_X13', 'P001_B001_B03', 'P001_B001_B14']
+    if system in systems:
+        if system.ids[0].value in unverified_ids:
+            system.properties = []
+
+    return systems
 
 def add_pore_diameter_bucket_prop(systems):
 
@@ -180,14 +189,13 @@ def add_pore_diameter_bucket_prop(systems):
 def add_porosity_data_to_pifs(systems, data_porosity_jsons):
 
     for f in os.listdir(data_porosity_jsons):
-
-        porosity_data_system = pif.load(open(data_porosity_jsons+f, "r"))
-        porosity_system_sample_id = porosity_data_system.ids[0].value
-
-        for system in systems:
-            main_system_sample_id = system.ids[0].value
-            if main_system_sample_id == porosity_system_sample_id:
-                system.properties = porosity_data_system.properties
+        if ".json" in f:
+            porosity_data_system = pif.load(open(data_porosity_jsons+f, "r"))
+            porosity_system_sample_id = porosity_data_system.ids[0].value
+            for system in systems:
+                main_system_sample_id = system.ids[0].value
+                if main_system_sample_id == porosity_system_sample_id:
+                    system.properties = porosity_data_system.properties
 
     return systems
 
@@ -236,7 +244,14 @@ def add_porosity_stats_to_pifs(systems):
                     else:
                         system.properties.append(Property(name='Pore size warning (ternary)', scalars='GREEN'))
 
-                    system.properties.append(Property(name="log max pore diameter", scalars=Scalar(value=math.log(max_pore_diameter(mpd)))))
+                    system.properties.append(Property(name="log max pore diameter", scalars=Scalar(value=math.log10(mpd))))
+
+                if prop.name == 'median pore diameter':
+                    if prop.scalars.value > 22:
+                        system.properties.append(Property(name='Median pore classifier', scalars='>22 um'))
+                    else:
+                        system.properties.append(Property(name='Median pore classifier', scalars='<22 um'))
+
     return systems
 
 
@@ -246,7 +261,8 @@ def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
                            'median pore diameter', 'log max pore diameter', 'Pore size warning',
                            'Pore size warning (ternary)', 'total pores', 'stdev of pore diameters', 'dist_best_fit',
                            'r_squared_norm', 'r_squared_lognorm', 'pore diameter < 50 um', 'pore diameter 50 < x < 100 um',
-                           'pore diameter 100 < x < 150 um', 'pore diameter 150 < x < 200 um', 'pore diameter x > 200 um']
+                           'pore diameter 100 < x < 150 um', 'pore diameter 150 < x < 200 um', 'pore diameter x > 200 um',
+                           'Median pore classifier']
 
     for f in os.listdir(develop_branch_dir):
 
@@ -371,7 +387,7 @@ if __name__ == "__main__":
     # get_files_from_dataset(dataset_id="73", download_path=base_download_path+"master/LPBF_Inconel_718/")
 
     # modify master branch, pushes modified dataset to a develop branch
-    modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
+    # modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
 
     refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined/")
 
