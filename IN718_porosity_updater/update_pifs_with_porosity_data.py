@@ -257,12 +257,17 @@ def add_porosity_stats_to_pifs(systems):
 
 def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
 
-    selected_prop_names = ['max pore diameter', 'mean pore diameter', 'fraction porosity', 'median pore spacing',
+    porosity_props = ['max pore diameter', 'mean pore diameter', 'fraction porosity', 'median pore spacing',
                            'median pore diameter', 'log max pore diameter', 'Pore size warning',
                            'Pore size warning (ternary)', 'total pores', 'stdev of pore diameters', 'dist_best_fit',
                            'r_squared_norm', 'r_squared_lognorm', 'pore diameter < 50 um', 'pore diameter 50 < x < 100 um',
                            'pore diameter 100 < x < 150 um', 'pore diameter 150 < x < 200 um', 'pore diameter x > 200 um',
                            'Median pore classifier']
+
+    mechanical_props = ['elastic modulus', 'elastic onset', 'yield strength', 'yield strain', 'ultimate strength',
+                        'necking onset', 'fracture strength', 'total elongation', 'ductility', 'toughness']
+
+    selected_prop_names = porosity_props + mechanical_props
 
     for f in os.listdir(develop_branch_dir):
 
@@ -285,6 +290,14 @@ def refine_to_relevant_props(develop_branch_dir, feature_branch_dir):
                     for prop in old_system.properties:
                         if prop.name in selected_prop_names:
                             new_system.properties.append(prop)
+
+                # mechanical props stored in subsystem
+                if old_system.sub_systems:
+                    for sub_system in old_system.sub_systems:
+                        if sub_system.properties:
+                            for prop in sub_system.properties:
+                                if prop.name in selected_prop_names:
+                                    new_system.properties.append(prop)
 
                 new_systems.append(new_system)
 
@@ -389,7 +402,7 @@ if __name__ == "__main__":
     # modify master branch, pushes modified dataset to a develop branch
     # modify_master_dataset(master_branch_dir=base_download_path+"master/LPBF_Inconel_718/", develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/")
 
-    refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined/")
+    refine_to_relevant_props(develop_branch_dir=base_download_path+"develop/LPBF_Inconel_718/", feature_branch_dir=base_download_path+"feature/IN718_refined_with_mech_props/")
 
     # upload to new dataset
     # upload_pifs(base_download_path+"develop/LPBF_Inconel_718/", 78)
